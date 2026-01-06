@@ -1,0 +1,379 @@
+<!doctype html>
+<html lang="fr">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Service déploiement</title>
+  <link rel="stylesheet" href="./css/styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="./js/app.js" defer></script>
+</head>
+
+<body>
+  <div class="app">
+    <!-- LEFT -->
+    <section class="card left">
+      <div class="header header-left">
+        <div class="title title-brand">
+          <div class="brand-row">
+            <img class="brand-logo" src="./img/logo_cybertek.jpeg" alt="Cybertek" />
+            <div class="brand-copy">
+              <h1>Service déploiement</h1>
+              <div class="sub">Ajout • Placement • Suivi • Problèmes</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="content">
+        <div class="row" style="margin-bottom:10px">
+          <button class="btn primary grow" id="btnAddCart">Ajouter un chariot</button>
+          <button class="btn" id="btnResetPos" title="Retirer tous les chariots des prises">Tout retirer</button>
+        </div>
+
+        <div class="hr"></div>
+
+        <div class="section section-stack">
+          <h2>Non placés</h2>
+          <span class="tiny hint">Glisse sur une prise • Clique pour ouvrir • Supprime si besoin</span>
+        </div>
+
+        <div class="unplaced-list" id="unplacedList"></div>
+
+        <div class="footer-note">
+          Astuce : sur une prise vide → “Assigner”. Sur une prise occupée → clique sur le chariot.
+        </div>
+      </div>
+    </section>
+
+    <!-- CENTER -->
+    <section class="card center">
+      <div class="header">
+        <div class="title">
+          <h1>Plan de la salle Déploiement</h1>
+        </div>
+        <div class="center-datetime" id="centerDateTime" aria-label="Date et heure">—</div>
+      </div>
+
+      <div class="plan">
+        <div class="plan-side">
+          <div class="plan-head">
+            <span class="lab">Côté gauche</span>
+            <span class="tiny">9 prises</span>
+          </div>
+          <div class="sockets" id="leftSockets"></div>
+        </div>
+
+        <div class="plan-side">
+          <div class="plan-head">
+            <span class="lab">Côté droit</span>
+            <span class="tiny">6 prises</span>
+          </div>
+          <div class="sockets" id="rightSockets"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- RIGHT -->
+    <section class="card right">
+      <div class="header">
+        <div class="title">
+          <h1>Logs</h1>
+          <div class="sub">Uniquement les problèmes • Copier en TSV pour Sheets</div>
+        </div>
+        <div class="row">
+          <button class="btn" id="btnCopyLogs">Copier logs</button>
+          <button class="btn danger" id="btnClearLogs">Vider</button>
+        </div>
+      </div>
+
+      <div class="content">
+        <div class="section">
+          <h2>Aujourd’hui</h2>
+          <span class="badge" id="logCount">0</span>
+        </div>
+        <div class="logs" id="logs"></div>
+      </div>
+    </section>
+  </div>
+
+  <!-- Modal: Ajouter un chariot -->
+  <div class="modal-backdrop" id="addCartModal" data-open="0" role="dialog" aria-modal="true">
+    <div class="modal modal-narrow">
+      <div class="modal-head">
+        <div class="lefty">
+          <p class="h">Ajouter un chariot</p>
+          <div class="s">Line-up : lot obligatoire • BTO : pas de lot</div>
+        </div>
+        <div class="row">
+          <button class="btn" id="acCancel">Annuler</button>
+          <button class="btn primary" id="acSave">Ajouter</button>
+        </div>
+      </div>
+
+      <div class="modal-body">
+        <div class="two">
+          <div>
+            <div class="tiny" style="margin-bottom:6px">Nom du chariot</div>
+            <input class="input" id="acName" placeholder="Ex: Chariot 1" />
+          </div>
+
+          <div>
+            <div class="tiny" style="margin-bottom:6px">Type</div>
+
+            <!-- ✅ Dropdown custom: Line-up / BTO -->
+            <div class="fake-select" id="acTypeSelect">
+              <button type="button" class="fake-select-btn" id="acTypeBtn">
+                <span id="acTypeLabel">Line-up</span>
+                <span class="chev">▾</span>
+              </button>
+              <div class="fake-select-menu" id="acTypeMenu" data-open="0"></div>
+            </div>
+          </div>
+        </div>
+
+        <div id="acLotWrap" style="margin-top:12px">
+          <div class="tiny" style="margin-bottom:6px">Nom du lot (Line-up)</div>
+          <input class="input" id="acLot" placeholder="Ex: LINEUP-2401" />
+        </div>
+
+        <div class="two" style="margin-top:12px">
+          <div>
+            <div class="tiny" style="margin-bottom:6px">Temps déploiement image (minutes)</div>
+            <input class="input" id="acDeploy" type="number" min="0" step="1" />
+          </div>
+          <div>
+            <div class="tiny" style="margin-bottom:6px">Temps burn (minutes)</div>
+            <input class="input" id="acBurn" type="number" min="0" step="1" />
+          </div>
+        </div>
+
+        <div style="margin-top:12px">
+          <div class="tiny" style="margin-bottom:6px">Placer sur une prise (optionnel)</div>
+
+          <!-- ✅ Dropdown custom: prises -->
+          <div class="fake-select" id="acSocketSelect">
+            <button type="button" class="fake-select-btn" id="acSocketBtn">
+              <span id="acSocketLabel">— Ne pas placer maintenant —</span>
+              <span class="chev">▾</span>
+            </button>
+            <div class="fake-select-menu" id="acSocketMenu" data-open="0"></div>
+          </div>
+        </div>
+
+        <!-- ✅ Bulk SN + monteur -->
+        <div style="margin-top:12px">
+          <div class="tiny" style="margin-bottom:6px">
+            Coller SN + prénom monteur (1 ligne = SN, ligne suivante = prénom). Les lignes vides sont prises en compte
+            (ex : PC7 absent = 2 lignes vides).
+          </div>
+          <textarea class="textarea" id="acBulk" placeholder="PC1 SN
+PC1 Monteur
+PC2 SN
+PC2 Monteur
+...
+(2 lignes vides = un PC absent)"></textarea>
+        </div>
+      </div>
+
+      <div class="footer-note">
+        Déploiement image : 35 min (Line-up & BTO). Burn : 30 (Line-up) / 60 (BTO).
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Assigner un chariot -->
+  <div class="modal-backdrop" id="assignModal" data-open="0" role="dialog" aria-modal="true">
+    <div class="modal modal-narrow">
+      <div class="modal-head">
+        <div class="lefty">
+          <p class="h">Assigner un chariot</p>
+          <div class="s" id="asSub">—</div>
+        </div>
+        <div class="row">
+          <button class="btn" id="asCancel">Annuler</button>
+          <button class="btn primary" id="asSave">Assigner</button>
+        </div>
+      </div>
+
+      <div class="modal-body">
+        <div class="tiny" style="margin-bottom:6px">Chariots non placés</div>
+        <select class="select" id="asSelect"></select>
+      </div>
+
+      <div class="footer-note">
+        Ensuite tu peux déplacer le chariot par drag & drop entre les prises.
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Chariot (12 PC) -->
+  <div class="modal-backdrop" id="cartModal" data-open="0" role="dialog" aria-modal="true">
+    <div class="modal">
+      <div class="modal-head">
+        <div class="lefty">
+          <p class="h" id="cartTitle">Chariot</p>
+          <div class="s" id="cartSub">—</div>
+        </div>
+        <div class="row">
+          <button class="btn" id="btnCartClose">Fermer</button>
+        </div>
+      </div>
+      <div class="modal-body">
+        <div class="pc-grid" id="pcGrid"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Problème -->
+  <div class="modal-backdrop" id="problemModal" data-open="0" role="dialog" aria-modal="true">
+    <div class="modal modal-narrow">
+      <div class="modal-head">
+        <div class="lefty">
+          <p class="h">Reporter un problème</p>
+          <div class="s" id="pmSub">—</div>
+        </div>
+        <div class="row">
+          <button class="btn" id="pmCancel">Annuler</button>
+          <button class="btn primary" id="pmSave">Valider</button>
+        </div>
+      </div>
+
+      <div class="modal-body">
+        <div class="two">
+          <div>
+            <div class="tiny" style="margin-bottom:6px">Numéro de la semaine</div>
+            <input class="input" id="pmWeek" type="number" min="1" max="53" />
+          </div>
+          <div>
+            <div class="tiny" style="margin-bottom:6px">Date</div>
+            <input class="input" id="pmDate" type="date" />
+          </div>
+        </div>
+
+        <div class="two" style="margin-top:12px">
+          <div>
+            <div class="tiny" style="margin-bottom:6px">Type</div>
+            <div class="fake-select" id="pmTypeSelect">
+              <button type="button" class="fake-select-btn" id="pmTypeBtn">
+                <span id="pmTypeLabel">—</span>
+                <span class="chev">▾</span>
+              </button>
+              <div class="fake-select-menu" id="pmTypeMenu" data-open="0"></div>
+            </div>
+          </div>
+
+          <div>
+            <div class="tiny" style="margin-bottom:6px">Erreur Monteur</div>
+            <div class="fake-select" id="pmErrSelect">
+              <button type="button" class="fake-select-btn" id="pmErrBtn">
+                <span id="pmErrLabel">—</span>
+                <span class="chev">▾</span>
+              </button>
+              <div class="fake-select-menu" id="pmErrMenu" data-open="0"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="two" style="margin-top:12px">
+          <div>
+            <div class="tiny" style="margin-bottom:6px">Monteur (Prénom)</div>
+            <input class="input" id="pmMonteur" placeholder="Ex: Noa" />
+          </div>
+          <div>
+            <div class="tiny" style="margin-bottom:6px">SN</div>
+            <input class="input" id="pmSn" placeholder="Ex: 162356-28" />
+          </div>
+        </div>
+
+        <div class="two" style="margin-top:12px">
+          <div>
+            <div class="tiny" style="margin-bottom:6px">Lot</div>
+            <input class="input" id="pmLot" placeholder="Ex: FamilyStation I5" />
+          </div>
+          <div>
+            <div class="tiny" style="margin-bottom:6px">Numéro de chariot</div>
+            <input class="input" id="pmCartNo" placeholder="Ex: 10" />
+          </div>
+        </div>
+
+        <div class="two" style="margin-top:12px">
+          <div>
+            <div class="tiny" style="margin-bottom:6px">Emplacement sur le chariot</div>
+            <input class="input" id="pmPlace" type="number" min="1" max="12" />
+          </div>
+          <div></div>
+        </div>
+
+        <div class="two" style="margin-top:12px">
+          <div>
+            <div class="tiny" style="margin-bottom:6px">Observations</div>
+            <div class="fake-select" id="pmObsSelect">
+              <button type="button" class="fake-select-btn" id="pmObsBtn">
+                <span id="pmObsLabel">—</span>
+                <span class="chev">▾</span>
+              </button>
+              <div class="fake-select-menu" id="pmObsMenu" data-open="0"></div>
+            </div>
+
+            <div id="pmObsFreeWrap" style="display:none; margin-top:8px">
+              <input class="input" id="pmObsFree" placeholder="Observation (texte libre)" />
+            </div>
+          </div>
+
+          <div>
+            <div class="tiny" style="margin-bottom:6px">Cause</div>
+            <div class="fake-select" id="pmCauseSelect">
+              <button type="button" class="fake-select-btn" id="pmCauseBtn">
+                <span id="pmCauseLabel">—</span>
+                <span class="chev">▾</span>
+              </button>
+              <div class="fake-select-menu" id="pmCauseMenu" data-open="0"></div>
+            </div>
+
+            <div id="pmCauseFreeWrap" style="display:none; margin-top:8px">
+              <input class="input" id="pmCauseFree" placeholder="Cause (texte libre)" />
+            </div>
+          </div>
+        </div>
+
+        <div class="two" style="margin-top:12px">
+          <div>
+            <div class="tiny" style="margin-bottom:6px">Chariot 9</div>
+            <div class="fake-select" id="pmCh9Select">
+              <button type="button" class="fake-select-btn" id="pmCh9Btn">
+                <span id="pmCh9Label">—</span>
+                <span class="chev">▾</span>
+              </button>
+              <div class="fake-select-menu" id="pmCh9Menu" data-open="0"></div>
+            </div>
+          </div>
+
+          <div>
+            <div class="tiny" style="margin-bottom:6px">SAV</div>
+            <div class="fake-select" id="pmSavSelect">
+              <button type="button" class="fake-select-btn" id="pmSavBtn">
+                <span id="pmSavLabel">—</span>
+                <span class="chev">▾</span>
+              </button>
+              <div class="fake-select-menu" id="pmSavMenu" data-open="0"></div>
+            </div>
+          </div>
+        </div>
+
+        <div style="margin-top:12px">
+          <div class="tiny" style="margin-bottom:6px">Commentaires</div>
+          <textarea class="textarea" id="pmComment" placeholder="Détails…"></textarea>
+        </div>
+      </div>
+
+      <div class="footer-note">
+        Les champs déjà connus (Type/Monteur/SN/Lot/Chariot/Place) sont pré-remplis automatiquement.
+      </div>
+    </div>
+  </div>
+
+</body>
+
+</html>
