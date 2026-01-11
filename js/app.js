@@ -264,6 +264,7 @@
 
   const btnAddCart = document.getElementById("btnAddCart");
   const btnResetPos = document.getElementById("btnResetPos");
+  const btnToggleLeft = document.getElementById("btnToggleLeft"); // Toggle left card
   const centerDateTime = document.getElementById("centerDateTime");
 
   const logsEl = document.getElementById("logs");
@@ -762,6 +763,16 @@
       renderAll();
     }
   });
+
+  // --- toggle left card ---
+  if (btnToggleLeft) {
+    btnToggleLeft.addEventListener("click", () => {
+      const cardLeft = document.querySelector(".card.left");
+      if (cardLeft) {
+        cardLeft.classList.toggle("collapsed");
+      }
+    });
+  }
 
   // --- cart modal (12 PC) ---
   const openCartModal = (cartId) => {
